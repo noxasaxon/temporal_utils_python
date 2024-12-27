@@ -1,16 +1,37 @@
-from typing import TypedDict
-from temporalio.common import RetryPolicy
+from temporalio.workflow import ActivityConfig
 from datetime import timedelta
 
 
-class TemporalExecActivityOptions(TypedDict, total=False):
-    """Type of options that can be set when running a Temporal Activity from a workflow.
-    Use this type to define the default options for each activity in a class that inherits from `BaseTemporalActivity`.
+## Collection of best-practice Temporal Activity execution options from the community
+# Temporal @ Stripe learnings: https://www.youtube.com/watch?v=yeoawVIn060
+# Temporal Blog Post: https://temporal.io/blog/activity-timeouts
+# Interactive Tool - Activity Retry Simulator: https://docs.temporal.io/develop/activity-retry-simulator
+# Tales from the Temporal Trenches: https://www.youtube.com/watch?v=sSOjD45Yu7g
+default_temporal_execute_activity_options: ActivityConfig = {
+    #
+    # max time of a single Execution of the Activity (should always be set!)
+    "start_to_close_timeout": timedelta(minutes=30),
+    #
+    # max overrall execution time INCLUDING retries
+    "schedule_to_close_timeout": None,
+    #
+    # Limits the maximum time between Heartbeats. For long running Activities, enables a quicker response when a Heartbeat fails to be recorded.
+    "heartbeat_timeout": None,
+    #
+    # Setting an activity retry policy: https://docs.temporal.io/encyclopedia/retry-policies
+    "retry_policy": None,
+    #
+    # DANGER! Time that the Activity Task can stay in the Task Queue before it is picked up by a Worker.
+    # used for queue timeouts and task routing. Not retryable, rarely needs to be used.
+    "schedule_to_start_timeout": None,
+}
+"""Type of options that can be set when running a Temporal Activity from a workflow.
+    Use this type to define the default options for each activity in a class that inherits from `BaseActivityValidated`.
 
     Example:
     ```python
 
-    class MyActivity(BaseTemporalActivity):
+    class MyActivity(BaseActivityValidated):
         @activity.defn
         async def my_activity(self, input: MyInputType) -> MyOutputType:
             pass
@@ -25,41 +46,6 @@ class TemporalExecActivityOptions(TypedDict, total=False):
             )
         }
     """
-
-    start_to_close_timeout: timedelta | None
-    """max time of a single Execution of the Activity (should always be set!)"""
-    heartbeat_timeout: timedelta | None
-    """Limits the maximum time between Heartbeats. For long running Activities, enables a quicker response when a Heartbeat fails to be recorded."""
-    retry_policy: RetryPolicy | None
-    """Setting an activity retry policy: https://docs.temporal.io/encyclopedia/retry-policies"""
-    schedule_to_close_timeout: timedelta | None
-    """max overrall execution time INCLUDING retries"""
-    schedule_to_start_timeout: timedelta | None
-    """Time that the Activity Task can stay in the Task Queue before it is picked up  by a Worker.
-    used for queue timeouts and task routing. Not retryable, rarely needs to be used!"""
-
-
-"""max time of a single Execution of the Activity (should always be set!)"""
-
-
-## Collection of best-practice Temporal Activity execution options from the community
-# Temporal @ Stripe learnings: https://www.youtube.com/watch?v=yeoawVIn060
-# Temporal Blog Post: https://temporal.io/blog/activity-timeouts
-# Interactive Tool - Activity Retry Simulator: https://docs.temporal.io/develop/activity-retry-simulator
-# Tales from the Temporal Trenches: https://www.youtube.com/watch?v=sSOjD45Yu7g
-default_temporal_execute_activity_options: TemporalExecActivityOptions = {
-    ## max overrall execution time INCLUDING retries
-    "schedule_to_close_timeout": None,
-    ## max time of a single Execution of the Activity (should always be set!)
-    "start_to_close_timeout": timedelta(minutes=30),
-    ## Limits the maximum time between Heartbeats. For long running Activities, enables a quicker response when a Heartbeat fails to be recorded.
-    # "heartbeat_timeout": None
-    #
-    ## Setting an activity retry policy: https://docs.temporal.io/encyclopedia/retry-policies
-    # retry_policy: Optional[temporalio.common.RetryPolicy] = None,
-    #
-    "schedule_to_start_timeout": None,
-}
 
 
 DEFAULT_WF_EXECUTION_TIMEOUT = timedelta(days=3)
