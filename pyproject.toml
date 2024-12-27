@@ -1,0 +1,15 @@
+[project]
+name = "temporal-utils"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [{ name = "Saxon", email = "me@saxonhunt.com" }]
+requires-python = ">=3.10"
+dependencies = ["temporalio==1.8.0", "pydantic[email,timezone]~=2.7.4"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = ["pytest~=8.2.2"]
