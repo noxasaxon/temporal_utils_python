@@ -318,7 +318,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pydantic", extras = ["email", "timezone"], specifier = "~=2.7.4" },
+    { name = "pydantic", extras = ["email"], specifier = "~=2.7.4" },
     { name = "temporalio", specifier = "==1.8.0" },
 ]
 
