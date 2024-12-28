@@ -48,30 +48,53 @@ default_temporal_execute_activity_options: ActivityConfig = {
     """
 
 
-DEFAULT_WF_EXECUTION_TIMEOUT = timedelta(days=3)
-DEFAULT_WF_RUN_TIMEOUT = timedelta(days=3)
-
 default_temporal_execute_workflow_options = {
     # maximum allowed duration of an entire workflow execution, including retries and any "Continue As New" operations
-    "execution_timeout": DEFAULT_WF_EXECUTION_TIMEOUT,
+    "execution_timeout": timedelta(days=3),
     # limits the duration of a single workflow execution (run) within that overall execution chain
-    "run_timeout": DEFAULT_WF_RUN_TIMEOUT,
-    # task_timeout: Optional[timedelta] = None,
-    # id_reuse_policy: temporalio.common.WorkflowIDReusePolicy = temporalio.common.WorkflowIDReusePolicy.ALLOW_DUPLICATE,
-    # id_conflict_policy: temporalio.common.WorkflowIDConflictPolicy = temporalio.common.WorkflowIDConflictPolicy.UNSPECIFIED,
-    # retry_policy: Optional[temporalio.common.RetryPolicy] = None,
-    # cron_schedule: str = "",
-    # memo: Optional[Mapping[str, Any]] = None,
-    # search_attributes: Optional[
-    #     Union[
-    #         temporalio.common.TypedSearchAttributes,
-    #         temporalio.common.SearchAttributes,
-    #     ]
-    # ] = None,
-    # start_delay: Optional[timedelta] = None,
-    # start_signal: Optional[str] = None,
-    # start_signal_args: Sequence[Any] = [],
-    # rpc_metadata: Mapping[str, str] = {},
-    # rpc_timeout: Optional[timedelta] = None,
-    # request_eager_start: bool = False,
+    "run_timeout": timedelta(days=3),
+    #
+    # For string workflows, this can set the specific result type hint to deserialize into.
+    # "result_type":
+    #
+    # Timeout for a single workflow task.
+    # "task_timeout":
+    #
+    # How already-existing IDs are treated.
+    # "id_reuse_policy":
+    #
+    # How already-running workflows of the same ID are treated. Default is unspecified which effectively means fail the
+    #     start attempt. This cannot be set if ``id_reuse_policy`` is set
+    #     to terminate if running.
+    # "id_conflict_policy":
+    #
+    # Retry policy for the workflow.
+    # "retry_policy":
+    #
+    # See https://docs.temporal.io/docs/content/what-is-a-temporal-cron-job/
+    # "cron_schedule":
+    #
+    # "memo":
+    # Memo for the workflow.
+    #
+    # Search attributes for the workflow. The dictionary form of this is deprecated, use :py:class:`temporalio.common.TypedSearchAttributes`.
+    # "search_attributes":
+    #
+    # Amount of time to wait before starting the workflow. This does not work with `cron_schedule`.
+    # "start_delay":
+    #
+    # If present, this signal is sent as signal-with-start instead of traditional workflow start.
+    # "start_signal":
+    #
+    # "start_signal_args": Arguments for start_signal if start_signal present.
+    #
+    # Headers used on the RPC call. Keys here override client-level RPC metadata keys.
+    # "rpc_metadata":
+    #
+    # Optional RPC deadline to set for the RPC call.
+    # "rpc_timeout":
+    #
+    # Potentially reduce the latency to start this workflow by encouraging the server to start it on a local worker running with
+    #     this same client. THIS IS EXPERIMENTAL.
+    # request_eager_start:
 }

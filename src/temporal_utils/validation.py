@@ -6,26 +6,30 @@ import inspect
 class _BaseValidator:
     """Collection of class validation utilities that are generic for use on workflows and activities."""
 
-    validation_fn_prefix = "_validate_"
-
     def get_search_attribute(self) -> str:
         """Must be implemented in subclass before use. This attribute is used to find the methods to validate, and have been decorated by temporal."""
+        raise NotImplementedError
+
+    def get_opts_keys_that_must_be_set(self) -> list[str]:
+        """list of dict keys required to exist in the opts dict for each method we validate."""
         raise NotImplementedError
 
     def run_validators(self, class_to_validate: type) -> None:  # type: ignore[reportSelfClsParameterName]
         """Runs all validators on the input class."""
 
+        validation_fn_prefix = "_validate_"
+
         # get all methods from Self that begin with "validate_"
         validators = [
             getattr(self, fn_name)
             for fn_name in dir(self)
-            if fn_name.startswith(self.validation_fn_prefix)
+            if fn_name.startswith(validation_fn_prefix)
         ]
 
         # if no validators are found, raise error
         if not validators:
             raise ValueError(
-                f"No validators found in {self.__name__}. Please add a validator method that begins with `{self.validation_fn_prefix}`."  # type: ignore[attr-defined]
+                f"No validators found in {self.__name__}. Please add a validator method that begins with `{validation_fn_prefix}`."  # type: ignore[attr-defined]
             )
 
         # run all validators and collect their outputs into a flattened errors list
@@ -34,7 +38,7 @@ class _BaseValidator:
         for (
             fn_name,
             fn_type,
-        ) in self._collect_fns_to_validate(class_to_validate):
+        ) in self._collect_methods_to_validate(class_to_validate):
             for validator in validators:
                 validator_errors = validator(class_to_validate, fn_name, fn_type)
 
@@ -51,7 +55,7 @@ class _BaseValidator:
                 f"Validation Errors found in class `{class_to_validate.__name__}`: {errors}"
             )
 
-    def _collect_fns_to_validate(
+    def _collect_methods_to_validate(
         self,
         class_to_validate: type,
     ) -> list[tuple[str, FunctionType]]:  # type: ignore[reportSelfClsParameterName]
@@ -73,22 +77,6 @@ class _BaseValidator:
             )
         return fns_requiring_validation
 
-    def _get_methods_needing_validation(
-        self,
-        class_to_validate: type,
-    ) -> list[tuple[str, FunctionType]]:  # type: ignore[reportSelfClsParameterName]
-        all_class_methods = inspect.getmembers(
-            class_to_validate, predicate=lambda x: inspect.isfunction(x)
-        )
-
-        temporal_activity_defn_methods = [
-            fn_tup
-            for fn_tup in all_class_methods
-            if hasattr(fn_tup[1], "__temporal_activity_definition")
-        ]
-
-        return temporal_activity_defn_methods
-
     @staticmethod
     def _generate_opts_name(fn_name: str) -> str:
         return f"opts_{fn_name}"
@@ -103,10 +91,24 @@ class _BaseValidator:
         errors = []
 
         opts_name = TemporalActivityValidators._generate_opts_name(fn_name)
-        if not hasattr(class_to_validate, opts_name):
+        try:
+            # check that the method writer provided execution options
+            opts = getattr(class_to_validate, opts_name)
+        except AttributeError:
             errors.append(
                 f"Class `{class_to_validate.__class__.__name__}` created Temporal activity `{fn_name}` without providing default options for executing it. Please add a class attribute `{opts_name}` to the {class_to_validate.__class__.__name__}."
             )
+        else:
+            # check that the provided options are the correct type
+            if not isinstance(opts, dict):
+                errors.append(
+                    f"Class `{class_to_validate.__class__.__name__}` created Temporal activity `{fn_name}` with invalid execution options. `{opts_name}` should be a dict."
+                )
+            # check that the provided options include the required keys defined in the validator
+            elif not all(key in opts for key in self.get_opts_keys_that_must_be_set()):
+                errors.append(
+                    f"Class `{class_to_validate.__class__.__name__}` created Temporal activity `{fn_name}` without setting all required execution options. Please add the following keys to `{opts_name}`: {self.get_opts_keys_that_must_be_set()}"
+                )
 
         return errors
 
@@ -218,9 +220,32 @@ class TemporalActivityValidators(_BaseValidator):
     def get_search_attribute() -> str:
         return "__temporal_activity_definition"
 
+    @staticmethod
+    def get_opts_keys_that_must_be_set() -> list[str]:
+        """Keys are from `temporalio.workflow.ActivityConfig`"""
+        return [  #
+            # max time of a single Execution of the Activity (should always be set!)
+            "start_to_close_timeout",
+            #
+            # Setting an activity retry policy: https://docs.temporal.io/encyclopedia/retry-policies
+            "retry_policy",
+            #
+            # max overrall execution time INCLUDING retries
+            # "schedule_to_close_timeout": None,
+            #
+            # Limits the maximum time between Heartbeats. For long running Activities, enables a quicker response when a Heartbeat fails to be recorded.
+            # "heartbeat_timeout": None,
+        ]
+
 
 class TemporalWorkflowValidators(_BaseValidator):
     """ """
 
     def get_search_attribute(self) -> str:
         return "__temporal_workflow_run"
+
+    def get_opts_keys_that_must_be_set(self) -> list[str]:
+        return [
+            "execution_timeout",
+            "run_timeout",
+        ]
