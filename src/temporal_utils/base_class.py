@@ -1,6 +1,7 @@
 from typing import Any
 from temporal_utils.validation import (
     TemporalActivityValidators,
+    TemporalWorkflowValidators,
 )
 
 
@@ -71,6 +72,15 @@ class BaseActivityValidated:
     def __init_subclass__(cls: type, **kwargs: dict[str, Any]) -> None:
         """Automatically runs the `TemporalActivityValidators` validations on all children, even without instantiation."""
         TemporalActivityValidators().run_validators(cls)
+
+        # continue with normal subclass initialization
+        super().__init_subclass__(**kwargs)  # type: ignore[misc]
+
+
+class BaseWorkflowValidated:
+    def __init_subclass__(cls: type, **kwargs: dict[str, Any]) -> None:
+        """Automatically runs the `TemporalWorkflowValidators` validations on all children, even without instantiation."""
+        TemporalWorkflowValidators().run_validators(cls)
 
         # continue with normal subclass initialization
         super().__init_subclass__(**kwargs)  # type: ignore[misc]

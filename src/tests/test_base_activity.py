@@ -30,7 +30,7 @@ def test_activity_has_its_own_call_options():
 def test_activity_doesnt_have_its_own_call_options():
     with pytest.raises(
         TypeError,
-        match=TemporalActivityValidators._validate_activity_has_a_default_ops.__name__,
+        match=TemporalActivityValidators._validate_method_has_a_default_opts.__name__,
     ):
 
         class ActivityWithoutOptions(BaseActivityValidated):
@@ -56,7 +56,7 @@ def test_activity_succeeds_with_exactly_one_input_arg():
 def test_activity_fails_with_more_than_one_input_arg():
     with pytest.raises(
         TypeError,
-        match=TemporalActivityValidators._validate_activity_takes_a_single_arg.__name__,
+        match=TemporalActivityValidators._validate_method_takes_a_single_arg.__name__,
     ):
 
         class ActivityWithTooManyInputs(BaseActivityValidated):
@@ -72,7 +72,7 @@ def test_activity_fails_with_more_than_one_input_arg():
 def test_activity_fails_with_no_input_arg():
     with pytest.raises(
         TypeError,
-        match=TemporalActivityValidators._validate_activity_takes_a_single_arg.__name__,
+        match=TemporalActivityValidators._validate_method_takes_a_single_arg.__name__,
     ):
 
         class ActivityWithNoInputArgs(BaseActivityValidated):
@@ -86,7 +86,7 @@ def test_activity_fails_with_no_input_arg():
 def test_activity_fails_with_when_arg_isnt_pydantic():
     with pytest.raises(
         TypeError,
-        match=TemporalActivityValidators._validate_activity_input_arg_is_pydantic_serializable.__name__,
+        match=TemporalActivityValidators._validate_method_input_arg_is_pydantic_serializable.__name__,
     ):
 
         class ActivityWithArgDoesntJSONSerializeToDict(BaseActivityValidated):
@@ -102,7 +102,7 @@ def test_activity_fails_with_when_arg_isnt_pydantic():
 def test_activity_fails_with_when_output_isnt_pydantic():
     with pytest.raises(
         TypeError,
-        match=TemporalActivityValidators._validate_activity_output_is_pydantic_serializable.__name__,
+        match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
     ):
 
         class ActivityWithOneArg(BaseActivityValidated):

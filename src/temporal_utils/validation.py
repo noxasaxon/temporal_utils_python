@@ -73,7 +73,7 @@ class _BaseValidator:
             )
         return fns_requiring_validation
 
-    def _get_activity_defn_methods(
+    def _get_methods_needing_validation(
         self,
         class_to_validate: type,
     ) -> list[tuple[str, FunctionType]]:  # type: ignore[reportSelfClsParameterName]
@@ -93,7 +93,7 @@ class _BaseValidator:
     def _generate_opts_name(fn_name: str) -> str:
         return f"opts_{fn_name}"
 
-    def _validate_activity_has_a_default_ops(
+    def _validate_method_has_a_default_opts(
         self,
         class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
         fn_name: str,
@@ -110,7 +110,7 @@ class _BaseValidator:
 
         return errors
 
-    def _validate_activity_takes_a_single_arg(
+    def _validate_method_takes_a_single_arg(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
         fn_name: str,
@@ -132,7 +132,7 @@ class _BaseValidator:
 
         return errors
 
-    def _validate_activity_input_arg_is_pydantic_serializable(
+    def _validate_method_input_arg_is_pydantic_serializable(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
         fn_name: str,
@@ -160,7 +160,7 @@ class _BaseValidator:
 
         return errors
 
-    def _validate_activity_output_is_pydantic_serializable(
+    def _validate_method_output_is_pydantic_serializable(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
         fn_name: str,
@@ -182,13 +182,6 @@ class _BaseValidator:
             )
 
         return errors
-
-
-class TemporalActivityValidators2(_BaseValidator):
-    # added by the temporalio `@activity.defn` decorator
-    @staticmethod
-    def get_search_attribute() -> str:
-        return "__temporal_activity_definition"
 
 
 class TemporalActivityValidators(_BaseValidator):
