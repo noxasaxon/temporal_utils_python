@@ -96,18 +96,21 @@ class _BaseValidator:
             opts = getattr(class_to_validate, opts_name)
         except AttributeError:
             errors.append(
-                f"Class `{class_to_validate.__class__.__name__}` created Temporal activity `{fn_name}` without providing default options for executing it. Please add a class attribute `{opts_name}` to the {class_to_validate.__class__.__name__}."
+                f"Class `{class_to_validate.__name__}` created Temporal activity `{fn_name}` without providing default options for executing it. Please add a class attribute `{opts_name}` to the {class_to_validate.__class__.__name__}."
             )
         else:
             # check that the provided options are the correct type
             if not isinstance(opts, dict):
                 errors.append(
-                    f"Class `{class_to_validate.__class__.__name__}` created Temporal activity `{fn_name}` with invalid execution options. `{opts_name}` should be a dict."
+                    f"Class `{class_to_validate.__name__}` created Temporal activity `{fn_name}` with invalid execution options. `{opts_name}` should be a dict."
                 )
-            # check that the provided options include the required keys defined in the validator
-            elif not all(key in opts for key in self.get_opts_keys_that_must_be_set()):
+            # check that the provided options include the required keys defined in the validator (and that they aren't just `None`)
+            elif not all(
+                (key in opts and opts[key] is not None)
+                for key in self.get_opts_keys_that_must_be_set()
+            ):
                 errors.append(
-                    f"Class `{class_to_validate.__class__.__name__}` created Temporal activity `{fn_name}` without setting all required execution options. Please add the following keys to `{opts_name}`: {self.get_opts_keys_that_must_be_set()}"
+                    f"Class `{class_to_validate.__name__}` created Temporal activity `{fn_name}` without setting all required execution options. Please add the following keys to `{opts_name}`: {self.get_opts_keys_that_must_be_set()}"
                 )
 
         return errors

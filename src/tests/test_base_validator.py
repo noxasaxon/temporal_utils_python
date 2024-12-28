@@ -1,7 +1,9 @@
+from datetime import timedelta
 from typing import Any
 from pydantic import BaseModel
 import pytest
 from temporalio import activity
+from temporalio.common import RetryPolicy
 
 from temporal_utils.base_class import BaseActivityValidated
 from temporal_utils.validation import _BaseValidator
@@ -29,12 +31,24 @@ class BadBaseActivityUsingBadValidator:
         super().__init_subclass__(**kwargs)  # type: ignore[misc]
 
 
+act_options = {
+    "start_to_close_timeout": timedelta(minutes=30),
+    "retry_policy": RetryPolicy(
+        initial_interval=timedelta(seconds=5),
+        backoff_coefficient=2.0,
+        maximum_interval=timedelta(minutes=1),
+        maximum_attempts=5,
+        non_retryable_error_types=[],
+    ),
+}
+
+
 class SuccessfulActivity(BaseActivityValidated):
     @activity.defn
     async def act_with_call_options(self, act_input: ActivityInput) -> ActivityOutput:
         return ActivityOutput(result="success")
 
-    opts_act_with_call_options = {}
+    opts_act_with_call_options = act_options
 
 
 class GoodActivityWithNoBase:
@@ -44,7 +58,7 @@ class GoodActivityWithNoBase:
     async def act_with_call_options(self, act_input: ActivityInput) -> ActivityOutput:
         return ActivityOutput(result="success")
 
-    opts_act_with_call_options = {}
+    opts_act_with_call_options = act_options
 
 
 def test_successful_activity_is_still_correct():
@@ -58,4 +72,4 @@ def test_validator_subclass_fails_when_search_attribute_isnt_set():
         class GoodActivityWithBadValidator(
             GoodActivityWithNoBase, BadBaseActivityUsingBadValidator
         ):
-            pass
+            opts_act_with_call_options = act_options

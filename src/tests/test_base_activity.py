@@ -1,5 +1,7 @@
+from datetime import timedelta
 import pytest
 from temporalio import activity
+from temporalio.common import RetryPolicy
 from pydantic import BaseModel
 
 from temporal_utils.base_class import (
@@ -16,6 +18,18 @@ class ActivityOutput(BaseModel):
     result: str
 
 
+act_options = {
+    "start_to_close_timeout": timedelta(minutes=30),
+    "retry_policy": RetryPolicy(
+        initial_interval=timedelta(seconds=5),
+        backoff_coefficient=2.0,
+        maximum_interval=timedelta(minutes=1),
+        maximum_attempts=5,
+        non_retryable_error_types=[],
+    ),
+}
+
+
 def test_activity_has_its_own_call_options():
     class ActivityWithCallOptions(BaseActivityValidated):
         @activity.defn
@@ -24,7 +38,7 @@ def test_activity_has_its_own_call_options():
         ) -> ActivityOutput:
             return ActivityOutput(result="success")
 
-        opts_act_with_call_options = {}
+        opts_act_with_call_options = act_options
 
 
 def test_activity_doesnt_have_its_own_call_options():
@@ -50,7 +64,7 @@ def test_activity_succeeds_with_exactly_one_input_arg():
         ) -> ActivityOutput:
             return ActivityOutput(result="success")
 
-        opts_activity_with_one_input = {}
+        opts_activity_with_one_input = act_options
 
 
 def test_activity_fails_with_more_than_one_input_arg():
@@ -66,7 +80,7 @@ def test_activity_fails_with_more_than_one_input_arg():
             ) -> ActivityOutput:
                 return ActivityOutput(result="success")
 
-            opts_act_with_too_many_inputs = {}
+            opts_act_with_too_many_inputs = act_options
 
 
 def test_activity_fails_with_no_input_arg():
@@ -80,7 +94,7 @@ def test_activity_fails_with_no_input_arg():
             async def activity_with_no_input_args(self) -> ActivityOutput:
                 return ActivityOutput(result="success")
 
-            opts_activity_with_no_input_args = {}
+            opts_activity_with_no_input_args = act_options
 
 
 def test_activity_fails_with_when_arg_isnt_pydantic():
@@ -96,7 +110,7 @@ def test_activity_fails_with_when_arg_isnt_pydantic():
             ) -> ActivityOutput:
                 return ActivityOutput(result="success")
 
-            opts_activity_with_invalid_arg = {}
+            opts_activity_with_invalid_arg = act_options
 
 
 def test_activity_fails_with_when_output_isnt_pydantic():
@@ -110,4 +124,4 @@ def test_activity_fails_with_when_output_isnt_pydantic():
             async def activity_with_str_output(self, act_input: ActivityInput) -> str:
                 return "success"
 
-            opts_activity_with_str_output = {}
+            opts_activity_with_str_output = act_options
