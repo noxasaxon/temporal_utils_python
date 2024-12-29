@@ -73,7 +73,10 @@ class _BaseValidator:
             if hasattr(fn_tup[1], search_attribute)
         ]
 
-        if not fns_requiring_validation:
+        if (
+            not fns_requiring_validation
+            and "base" not in class_to_validate.__name__.lower()
+        ):
             raise ValueError(
                 f"Class `{class_to_validate.__name__}` does not have any methods annotated with `{search_attribute}`. Did you forget to decorate your activity or workflow method with a Temporal decorator?"
             )

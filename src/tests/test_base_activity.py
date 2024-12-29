@@ -125,3 +125,59 @@ def test_activity_fails_with_when_output_isnt_pydantic():
                 return "success"
 
             opts_activity_with_str_output = act_options
+
+
+def test_activity_fails_when_child_isnt_base_and_missing_activities():
+    with pytest.raises(
+        ValueError,
+        match=TemporalActivityValidators.get_search_attribute(),
+    ):
+
+        class ClassWithoutActivitiesAndNotNamed_B_ase(BaseActivityValidated):
+            pass
+
+
+def test_activity_passes_when_base_class_missing_activities():
+    class BaseClassShouldPassWithoutActivities(BaseActivityValidated):
+        pass
+
+
+def test_base_classes_can_be_grand_parents():
+    class GrandParentBase(BaseActivityValidated):
+        pass
+
+    class ParentBase(GrandParentBase):
+        pass
+
+    class Child(ParentBase):
+        @activity.defn
+        async def activity(self, act_input: ActivityInput) -> ActivityOutput:
+            return ActivityOutput(result="success")
+
+        opts_activity = act_options
+
+
+def test_activity_classes_can_be_grand_parents():
+    class GrandParentBase(BaseActivityValidated):
+        pass
+
+    class ActivityParent(GrandParentBase):
+        @activity.defn
+        async def parent_activity(self, act_input: ActivityInput) -> ActivityOutput:
+            return ActivityOutput(result="success")
+
+        opts_parent_activity = act_options
+
+    class ActivityChild(ActivityParent):
+        @activity.defn
+        async def child_activity(self, act_input: ActivityInput) -> ActivityOutput:
+            return ActivityOutput(result="success")
+
+        opts_child_activity = act_options
+
+    class ActivityGrandChild(ActivityChild):
+        @activity.defn
+        async def grandchild_activity(self, act_input: ActivityInput) -> ActivityOutput:
+            return ActivityOutput(result="success")
+
+        opts_grandchild_activity = act_options
