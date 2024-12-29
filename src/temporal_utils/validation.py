@@ -78,7 +78,7 @@ class _BaseValidator:
             and "base" not in class_to_validate.__name__.lower()
         ):
             raise ValueError(
-                f"Class `{class_to_validate.__name__}` does not have any methods annotated with `{search_attribute}`. Did you forget to decorate your activity or workflow method with a Temporal decorator?"
+                f"Class `{class_to_validate.__name__}` does not have any methods annotated with `{search_attribute}`. If this is intentional, please put the word `Base` somewhere in your class name. If not, did you forget to decorate your activity or workflow method with a Temporal decorator?"
             )
         return fns_requiring_validation
 
