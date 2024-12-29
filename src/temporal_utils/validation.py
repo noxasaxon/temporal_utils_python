@@ -21,9 +21,9 @@ class _BaseValidator:
 
         # get all methods from Self that begin with "validate_"
         validators = [
-            getattr(self, fn_name)
-            for fn_name in dir(self)
-            if fn_name.startswith(validation_fn_prefix)
+            getattr(self, method_name)
+            for method_name in dir(self)
+            if method_name.startswith(validation_fn_prefix)
         ]
 
         # if no validators are found, raise error
@@ -36,11 +36,13 @@ class _BaseValidator:
         errors = []
 
         for (
-            fn_name,
-            fn_type,
+            method_name,
+            method_type,
         ) in self._collect_methods_to_validate(class_to_validate):
             for validator in validators:
-                validator_errors = validator(class_to_validate, fn_name, fn_type)
+                validator_errors = validator(
+                    class_to_validate, method_name, method_type
+                )
 
                 # add context to errors and add them to the total errors list
                 errors.extend(
@@ -78,31 +80,31 @@ class _BaseValidator:
         return fns_requiring_validation
 
     @staticmethod
-    def _generate_opts_name(fn_name: str) -> str:
-        return f"opts_{fn_name}"
+    def _generate_opts_name(method_name: str) -> str:
+        return f"opts_{method_name}"
 
     def _validate_method_has_a_default_opts(
         self,
         class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
-        fn_name: str,
-        _fn_type: FunctionType,
+        method_name: str,
+        _method_type: FunctionType,
     ) -> list[str]:
         """Ensures activities have a unique execution options property set by the activity writer."""
         errors = []
 
-        opts_name = TemporalActivityValidators._generate_opts_name(fn_name)
+        opts_name = TemporalActivityValidators._generate_opts_name(method_name)
         try:
             # check that the method writer provided execution options
             opts = getattr(class_to_validate, opts_name)
         except AttributeError:
             errors.append(
-                f"Class `{class_to_validate.__name__}` created Temporal activity `{fn_name}` without providing default options for executing it. Please add a class attribute `{opts_name}` to the {class_to_validate.__class__.__name__}."
+                f"Class `{class_to_validate.__name__}` created Temporal activity `{method_name}` without providing default options for executing it. Please add a class attribute `{opts_name}` to the {class_to_validate.__class__.__name__}."
             )
         else:
             # check that the provided options are the correct type
             if not isinstance(opts, dict):
                 errors.append(
-                    f"Class `{class_to_validate.__name__}` created Temporal activity `{fn_name}` with invalid execution options. `{opts_name}` should be a dict."
+                    f"Class `{class_to_validate.__name__}` created Temporal activity `{method_name}` with invalid execution options. `{opts_name}` should be a dict."
                 )
             # check that the provided options include the required keys defined in the validator (and that they aren't just `None`)
             elif not all(
@@ -110,7 +112,7 @@ class _BaseValidator:
                 for key in self.get_opts_keys_that_must_be_set()
             ):
                 errors.append(
-                    f"Class `{class_to_validate.__name__}` created Temporal activity `{fn_name}` without setting all required execution options. Please add the following keys to `{opts_name}`: {self.get_opts_keys_that_must_be_set()}"
+                    f"Class `{class_to_validate.__name__}` created Temporal activity `{method_name}` without setting all required execution options. Please add the following keys to `{opts_name}`: {self.get_opts_keys_that_must_be_set()}"
                 )
 
         return errors
@@ -118,21 +120,21 @@ class _BaseValidator:
     def _validate_method_takes_a_single_arg(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
-        fn_name: str,
-        fn_type: FunctionType,
+        method_name: str,
+        method_type: FunctionType,
     ) -> list[str]:
         """Returns an error message if the activity does not take a single argument."""
         errors = []
 
-        num_activity_args = fn_type.__code__.co_argcount
+        num_params = len(inspect.signature(method_type).parameters)
 
-        if num_activity_args == 1:
+        if num_params <= 1:
             errors.append(
-                f"No input defined for Activity `{fn_name}`. Activities should take a single argument."
+                f"No input defined for Activity `{method_name}`. Activities should take a single argument (not including `self`)."
             )
-        elif num_activity_args > 2:
+        elif num_params > 2:
             errors.append(
-                f"Too many arguments defined for Activity `{fn_name}`. Activities should take a single argument."
+                f"Too many arguments defined for Activity `{method_name}`. Activities should take a single argument (not including `self`)."
             )
 
         return errors
@@ -140,27 +142,29 @@ class _BaseValidator:
     def _validate_method_input_arg_is_pydantic_serializable(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
-        fn_name: str,
-        fn_type: FunctionType,
+        method_name: str,
+        method_type: FunctionType,
     ) -> list[str]:
         errors = []
 
-        argspec = inspect.getfullargspec(fn_type)
+        params = inspect.signature(method_type).parameters
+
         try:
-            input_arg_name = argspec.args[1]
+            input_arg_name, input_arg_param = list(params.items())[1]
         except IndexError:
             errors.append(
-                f"No input defined for Activity `{fn_name}`. Activities should take a single arg inherited from pydantic's basemodel."
+                f"No input defined for Activity `{method_name}`. Activities should take a single arg inherited from pydantic's basemodel."
             )
         else:
-            input_arg_type = argspec.annotations.get(input_arg_name)
-            if input_arg_type is None:
+            input_arg_annotation = input_arg_param.annotation
+
+            if input_arg_annotation is None:
                 errors.append(
-                    f"Activity `{fn_name}` requires a type hint for its input argument."
+                    f"Activity `{method_name}` requires a type hint for its input argument."
                 )
-            elif not issubclass(input_arg_type, BaseModel):
+            elif not issubclass(input_arg_annotation, BaseModel):
                 errors.append(
-                    f"Activity `{fn_name}` input argument `{input_arg_name}` must be a child of pydantic's BaseModel."
+                    f"Activity `{method_name}` input argument `{input_arg_name}` must be a child of pydantic's BaseModel."
                 )
 
         return errors
@@ -168,22 +172,22 @@ class _BaseValidator:
     def _validate_method_output_is_pydantic_serializable(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
-        fn_name: str,
-        fn_type: FunctionType,
+        method_name: str,
+        method_type: FunctionType,
     ) -> list[str]:
         errors = []
 
-        argspec = inspect.getfullargspec(fn_type)
+        argspec = inspect.getfullargspec(method_type)
 
         return_type = argspec.annotations.get("return")
 
         if return_type is None:
             errors.append(
-                f"Activity `{fn_name}` does not have a type hint for its return value. Please add a type hint to the return value."
+                f"Activity `{method_name}` does not have a type hint for its return value. Please add a type hint to the return value."
             )
         elif not issubclass(return_type, BaseModel):
             errors.append(
-                f"Activity `{fn_name}` return value is not a child of pydantic's BaseModel. Activities should return a single argument (a dataclass or other json-serializable object that converts to a dictionary)."
+                f"Activity `{method_name}` return value is not a child of pydantic's BaseModel. Activities should return a single argument (a dataclass or other json-serializable object that converts to a dictionary)."
             )
 
         return errors
@@ -212,7 +216,7 @@ class TemporalActivityValidators(_BaseValidator):
 
         class TemporalActivityValidators:
             @staticmethod
-            def _validate_my_new_validator(cls: type, fn_name: str, _fn_type: FunctionType) -> list[str]:
+            def _validate_my_new_validator(cls: type, method_name: str, _method_type: FunctionType) -> list[str]:
                 errors = []
                 # do some validation here, and add string to the `errors` list if something is wrong
                 return errors
