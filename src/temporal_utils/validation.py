@@ -1,6 +1,8 @@
-from types import FunctionType
-from pydantic import BaseModel
 import inspect
+from types import FunctionType
+from typing import Any
+
+from pydantic import BaseModel
 
 
 class _BaseValidator:
@@ -142,6 +144,24 @@ class _BaseValidator:
 
         return errors
 
+    @staticmethod
+    def _is_annotation_child_of_pydantic_basemodel(
+        annotation_from_inspect: Any,
+    ) -> None | bool:
+        if not annotation_from_inspect:
+            return None
+
+        if str(BaseModel) not in str(annotation_from_inspect.__mro__):
+            # NOTE: FOR SOME REASON this is the only (hopefully) foolproof way to successfully check if
+            #  a Class Type OR an instance of a class inherit from a class that inherits anywhere from a grandparent (BaseModel).
+            #  Things that did not work:
+            #    - `isinstance`
+            #    - `issubclass` (works on types, fails on some instances),
+            #    - `BaseModel in annotation.__bases__`, (doesn't work for grandparents)
+            #    - `BaseModel in annotation.mro` or list(annotation.mro) (without converting to strings first)
+            return False
+        return True
+
     def _validate_method_input_arg_is_pydantic_serializable(
         self,
         _class_to_validate: type,  # type: ignore[reportSelfClsParameterName]
@@ -159,13 +179,15 @@ class _BaseValidator:
                 f"No input defined for Activity `{method_name}`. Activities should take a single arg inherited from pydantic's basemodel."
             )
         else:
-            input_arg_annotation = input_arg_param.annotation
+            is_pydantic = self._is_annotation_child_of_pydantic_basemodel(
+                input_arg_param.annotation
+            )
 
-            if input_arg_annotation is None:
+            if is_pydantic is None:
                 errors.append(
                     f"Activity `{method_name}` requires a type hint for its input argument."
                 )
-            elif not issubclass(input_arg_annotation, BaseModel):
+            elif not is_pydantic:
                 errors.append(
                     f"Activity `{method_name}` input argument `{input_arg_name}` must be a child of pydantic's BaseModel."
                 )
@@ -182,13 +204,15 @@ class _BaseValidator:
 
         argspec = inspect.getfullargspec(method_type)
 
-        return_type = argspec.annotations.get("return")
+        return_annotation = argspec.annotations.get("return")
 
-        if return_type is None:
+        is_pydantic = self._is_annotation_child_of_pydantic_basemodel(return_annotation)
+
+        if is_pydantic is None:
             errors.append(
                 f"Activity `{method_name}` does not have a type hint for its return value. Please add a type hint to the return value."
             )
-        elif not issubclass(return_type, BaseModel):
+        elif not is_pydantic:
             errors.append(
                 f"Activity `{method_name}` return value is not a child of pydantic's BaseModel. Activities should return a single argument (a dataclass or other json-serializable object that converts to a dictionary)."
             )
