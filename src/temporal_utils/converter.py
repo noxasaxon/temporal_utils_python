@@ -1,13 +1,19 @@
+import dataclasses
 import json
 from typing import Any, Optional
 
 from pydantic_core import to_jsonable_python
 from temporalio.api.common.v1 import Payload
+from temporalio.client import Client
 from temporalio.converter import (
     CompositePayloadConverter,
     DataConverter,
     DefaultPayloadConverter,
     JSONPlainPayloadConverter,
+)
+from temporalio.worker.workflow_sandbox import (
+    SandboxedWorkflowRunner,
+    SandboxRestrictions,
 )
 
 
@@ -56,9 +62,6 @@ pydantic_data_converter = DataConverter(
 """Data converter using Pydantic JSON conversion."""
 
 
-"""When executing a workflow via a temporal Client, you must pass in this `pydantic_data_converter` as the `data_converter` argument
-    to the `start_workflow` method. This will ensure that the workflow input is converted using Pydantic's JSON encoder."""
-
 # we also need to pass through the data_converter via the sandbox to the workflow
 
 # We always want to pass through external modules to the sandbox that we know
@@ -67,3 +70,32 @@ pydantic_data_converter = DataConverter(
 #     from pydantic import BaseModel
 
 #     from pydantic_converter.converter import pydantic_data_converter
+
+
+async def create_client_with_pydantic_converter(
+    host_url: str, **client_kwargs
+) -> Client:
+    """When executing a workflow via a temporal Client, you must pass in the `pydantic_data_converter` instance
+    as the `data_converter` argument for the `start_workflow()` or execute_workflow() methods. This will ensure
+    that the workflow input is converted using Pydantic's JSON encoder.
+    """
+    client = await Client.connect(
+        target_host=host_url, data_converter=pydantic_data_converter, **client_kwargs
+    )
+    return client
+
+
+# Due to known issues with Pydantic's use of issubclass and our inability to
+# override the check in sandbox, Pydantic will think datetime is actually date
+# in the sandbox. At the expense of protecting against datetime.now() use in
+# workflows, we're going to remove datetime module restrictions. See sdk-python
+# README's discussion of known sandbox issues for more details.
+def sandbox_runner_compatible_with_pydantic_converter() -> SandboxedWorkflowRunner:
+    return SandboxedWorkflowRunner(
+        restrictions=dataclasses.replace(
+            SandboxRestrictions.default,
+            invalid_module_members=SandboxRestrictions.invalid_module_members_default.with_child_unrestricted(
+                "datetime"
+            ),
+        )
+    )
