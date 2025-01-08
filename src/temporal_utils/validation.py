@@ -4,6 +4,12 @@ from types import FunctionType
 from typing import Any
 
 
+class TemporalUtilsValidationError(Exception):
+    """Base class for all TemporalUtils validation errors."""
+
+    pass
+
+
 class _BaseValidator:
     """Collection of class validation utilities that are generic for use on workflows and activities."""
 
@@ -29,7 +35,7 @@ class _BaseValidator:
 
         # if no validators are found, raise error
         if not validators:
-            raise ValueError(
+            raise TemporalUtilsValidationError(
                 f"No validators found in {self.__name__}. Please add a validator method that begins with `{validation_fn_prefix}`."  # type: ignore[attr-defined]
             )
 
@@ -54,7 +60,7 @@ class _BaseValidator:
                 )
 
         if errors:
-            raise TypeError(
+            raise TemporalUtilsValidationError(
                 f"Validation Errors found in class `{class_to_validate.__name__}`: {errors}"
             )
 
@@ -78,7 +84,7 @@ class _BaseValidator:
             not fns_requiring_validation
             and "base" not in class_to_validate.__name__.lower()
         ):
-            raise ValueError(
+            raise TemporalUtilsValidationError(
                 f"Class `{class_to_validate.__name__}` does not have any methods annotated with `{search_attribute}`. If this is intentional, please put the word `Base` somewhere in your class name. If not, did you forget to decorate your activity or workflow method with a Temporal decorator?"
             )
         return fns_requiring_validation
@@ -144,10 +150,10 @@ class _BaseValidator:
         return errors
 
     @staticmethod
-    def _is_annotation_child_of_pydantic_basemodel_and_not_dataclass(
+    def _throw_if_annotation_is_dataclass_or_not_child_of_basemodel(
         annotation_from_inspect: Any,
     ) -> None | bool:
-        """dataclasses interfere with the Temporal Pydantic converter we're using, so we want to avoid them"""
+        """dataclasses interfere with the Temporal Pydantic converter we're using, so we want to block them from being used as inputs or outputs."""
         if not annotation_from_inspect:
             return None
 
@@ -176,7 +182,7 @@ class _BaseValidator:
             )
         else:
             is_pydantic = (
-                self._is_annotation_child_of_pydantic_basemodel_and_not_dataclass(
+                self._throw_if_annotation_is_dataclass_or_not_child_of_basemodel(
                     input_arg_param.annotation
                 )
             )
@@ -187,7 +193,7 @@ class _BaseValidator:
                 )
             elif not is_pydantic:
                 errors.append(
-                    f"Activity `{method_name}` input argument `{input_arg_name}` must be a child of pydantic's BaseModel."
+                    f"Activity `{method_name}` input argument `{input_arg_name}` can't be a `dataclass` & must be a child of pydantic's BaseModel."
                 )
 
         return errors
@@ -204,7 +210,7 @@ class _BaseValidator:
 
         return_annotation = argspec.annotations.get("return")
 
-        is_pydantic = self._is_annotation_child_of_pydantic_basemodel_and_not_dataclass(
+        is_pydantic = self._throw_if_annotation_is_dataclass_or_not_child_of_basemodel(
             return_annotation
         )
 
@@ -214,7 +220,7 @@ class _BaseValidator:
             )
         elif not is_pydantic:
             errors.append(
-                f"Activity `{method_name}` return value is not a child of pydantic's BaseModel. Activities should return a single argument (a dataclass or other json-serializable object that converts to a dictionary)."
+                f"Activity `{method_name}` return value can't be a dataclass and must be a child of pydantic's BaseModel."
             )
 
         return errors

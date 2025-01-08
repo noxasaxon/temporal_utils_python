@@ -6,6 +6,7 @@ from temporalio import activity
 from temporalio.common import RetryPolicy
 
 from temporal_utils.base_class import BaseActivityValidated, TemporalActivityValidators
+from temporal_utils.validation import TemporalUtilsValidationError
 
 
 class ActivityInput(BaseModel):
@@ -41,7 +42,7 @@ def test_activity_has_its_own_call_options():
 
 def test_activity_doesnt_have_its_own_call_options():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_has_a_default_opts.__name__,
     ):
 
@@ -67,7 +68,7 @@ def test_activity_succeeds_with_exactly_one_input_arg():
 
 def test_activity_fails_with_more_than_one_input_arg():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_takes_a_single_arg.__name__,
     ):
 
@@ -83,7 +84,7 @@ def test_activity_fails_with_more_than_one_input_arg():
 
 def test_activity_fails_with_no_input_arg():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_takes_a_single_arg.__name__,
     ):
 
@@ -97,7 +98,7 @@ def test_activity_fails_with_no_input_arg():
 
 def test_activity_fails_with_when_arg_isnt_pydantic():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_input_arg_is_pydantic_serializable.__name__,
     ):
 
@@ -113,7 +114,7 @@ def test_activity_fails_with_when_arg_isnt_pydantic():
 
 def test_activity_fails_with_when_output_isnt_pydantic():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
     ):
 
@@ -127,7 +128,7 @@ def test_activity_fails_with_when_output_isnt_pydantic():
 
 def test_activity_fails_when_child_isnt_base_and_missing_activities():
     with pytest.raises(
-        ValueError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators.get_search_attribute(),
     ):
 
@@ -183,7 +184,7 @@ def test_activity_classes_can_be_grand_parents():
 
 def test_activity_fails_when_input_is_base_model_but_also_dataclass():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_input_arg_is_pydantic_serializable.__name__,
     ):
         from dataclasses import dataclass
@@ -204,7 +205,7 @@ def test_activity_fails_when_input_is_base_model_but_also_dataclass():
 
 def test_activity_fails_when_output_is_base_model_but_also_dataclass():
     with pytest.raises(
-        TypeError,
+        TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
     ):
         from dataclasses import dataclass

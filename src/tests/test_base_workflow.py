@@ -1,12 +1,12 @@
 import pytest
-from temporalio import workflow
 from pydantic import BaseModel
+from temporalio import workflow
 
-from temporal_utils.base_class import (
-    # BaseActivityValidated,
-    TemporalWorkflowValidators,
+from temporal_utils.base_class import (  # BaseActivityValidated,
     BaseWorkflowValidated,
+    TemporalWorkflowValidators,
 )
+from temporal_utils.validation import TemporalUtilsValidationError
 
 
 class WorkflowInput(BaseModel):
@@ -21,7 +21,7 @@ class WorkflowOutput(BaseModel):
 
 # Cant use test functions because temporalio's decorator throws when it is used on a class def in a local function
 with pytest.raises(
-    TypeError,
+    TemporalUtilsValidationError,
     match=TemporalWorkflowValidators._validate_method_has_a_default_opts.__name__,
 ):
 
@@ -37,7 +37,7 @@ def test_wf_is_missing_run_opts_above():
 
 
 with pytest.raises(
-    TypeError,
+    TemporalUtilsValidationError,
     match=TemporalWorkflowValidators._validate_method_takes_a_single_arg.__name__,
 ):
 
@@ -57,7 +57,7 @@ def test_wf_has_multiple_inputs_above():
 
 
 with pytest.raises(
-    TypeError,
+    TemporalUtilsValidationError,
     match=TemporalWorkflowValidators._validate_method_takes_a_single_arg.__name__,
 ):
 
@@ -75,7 +75,7 @@ def test_wf_has_no_input_above():
 
 
 with pytest.raises(
-    TypeError,
+    TemporalUtilsValidationError,
     match=TemporalWorkflowValidators._validate_method_input_arg_is_pydantic_serializable.__name__,
 ):
 
@@ -93,7 +93,7 @@ def test_wf_has_non_pydantic_input_above():
 
 
 with pytest.raises(
-    TypeError,
+    TemporalUtilsValidationError,
     match=TemporalWorkflowValidators._validate_method_output_is_pydantic_serializable.__name__,
 ):
 
