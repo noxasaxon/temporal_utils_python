@@ -1,7 +1,8 @@
 from datetime import timedelta
 from typing import Any
-from pydantic import BaseModel
+
 import pytest
+from pydantic import BaseModel
 from temporalio import activity
 from temporalio.common import RetryPolicy
 

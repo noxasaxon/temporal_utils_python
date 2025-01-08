@@ -1,8 +1,7 @@
 import inspect
+from dataclasses import is_dataclass
 from types import FunctionType
 from typing import Any
-
-from pydantic import BaseModel
 
 
 class _BaseValidator:
@@ -145,20 +144,17 @@ class _BaseValidator:
         return errors
 
     @staticmethod
-    def _is_annotation_child_of_pydantic_basemodel(
+    def _is_annotation_child_of_pydantic_basemodel_and_not_dataclass(
         annotation_from_inspect: Any,
     ) -> None | bool:
+        """dataclasses interfere with the Temporal Pydantic converter we're using, so we want to avoid them"""
         if not annotation_from_inspect:
             return None
 
-        if str(BaseModel) not in str(annotation_from_inspect.__mro__):
-            # NOTE: FOR SOME REASON this is the only (hopefully) foolproof way to successfully check if
-            #  a Class Type OR an instance of a class inherit from a class that inherits anywhere from a grandparent (BaseModel).
-            #  Things that did not work:
-            #    - `isinstance`
-            #    - `issubclass` (works on types, fails on some instances),
-            #    - `BaseModel in annotation.__bases__`, (doesn't work for grandparents)
-            #    - `BaseModel in annotation.mro` or list(annotation.mro) (without converting to strings first)
+        if not hasattr(annotation_from_inspect, "__pydantic_fields_set__"):
+            return False
+
+        if is_dataclass(annotation_from_inspect):
             return False
         return True
 
@@ -179,8 +175,10 @@ class _BaseValidator:
                 f"No input defined for Activity `{method_name}`. Activities should take a single arg inherited from pydantic's basemodel."
             )
         else:
-            is_pydantic = self._is_annotation_child_of_pydantic_basemodel(
-                input_arg_param.annotation
+            is_pydantic = (
+                self._is_annotation_child_of_pydantic_basemodel_and_not_dataclass(
+                    input_arg_param.annotation
+                )
             )
 
             if is_pydantic is None:
@@ -206,7 +204,9 @@ class _BaseValidator:
 
         return_annotation = argspec.annotations.get("return")
 
-        is_pydantic = self._is_annotation_child_of_pydantic_basemodel(return_annotation)
+        is_pydantic = self._is_annotation_child_of_pydantic_basemodel_and_not_dataclass(
+            return_annotation
+        )
 
         if is_pydantic is None:
             errors.append(

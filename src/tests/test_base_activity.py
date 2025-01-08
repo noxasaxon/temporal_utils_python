@@ -1,13 +1,11 @@
 from datetime import timedelta
+
 import pytest
+from pydantic import BaseModel
 from temporalio import activity
 from temporalio.common import RetryPolicy
-from pydantic import BaseModel
 
-from temporal_utils.base_class import (
-    BaseActivityValidated,
-    TemporalActivityValidators,
-)
+from temporal_utils.base_class import BaseActivityValidated, TemporalActivityValidators
 
 
 class ActivityInput(BaseModel):
@@ -181,3 +179,45 @@ def test_activity_classes_can_be_grand_parents():
             return ActivityOutput(result="success")
 
         opts_grandchild_activity = act_options
+
+
+def test_activity_fails_when_input_is_base_model_but_also_dataclass():
+    with pytest.raises(
+        TypeError,
+        match=TemporalActivityValidators._validate_method_input_arg_is_pydantic_serializable.__name__,
+    ):
+        from dataclasses import dataclass
+
+        @dataclass
+        class BadInputIsDataclassAndBaseModel(BaseModel):
+            operation: str
+
+        class ActivityWithCallOptions(BaseActivityValidated):
+            @activity.defn
+            async def act_with_call_options(
+                self, act_input: BadInputIsDataclassAndBaseModel
+            ) -> ActivityOutput:
+                return ActivityOutput(result="success")
+
+            opts_act_with_call_options = act_options
+
+
+def test_activity_fails_when_output_is_base_model_but_also_dataclass():
+    with pytest.raises(
+        TypeError,
+        match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
+    ):
+        from dataclasses import dataclass
+
+        @dataclass
+        class BadOutputIsDataclassAndBaseModel(BaseModel):
+            result: str
+
+        class ActivityWithCallOptions(BaseActivityValidated):
+            @activity.defn
+            async def act_with_call_options(
+                self, act_input: ActivityInput
+            ) -> BadOutputIsDataclassAndBaseModel:
+                return BadOutputIsDataclassAndBaseModel(result="success")
+
+            opts_act_with_call_options = act_options
