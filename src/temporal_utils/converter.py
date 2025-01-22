@@ -59,7 +59,9 @@ class PydanticPayloadConverter(CompositePayloadConverter):
 pydantic_data_converter = DataConverter(
     payload_converter_class=PydanticPayloadConverter
 )
-"""Data converter using Pydantic JSON conversion."""
+"""Pass this into the Temporal Client and the Worker to ensure that 
+    the workflow input is converted using Pydantic's JSON encoder.
+"""
 
 
 # we also need to pass through the data_converter via the sandbox to the workflow
@@ -99,3 +101,8 @@ def sandbox_runner_compatible_with_pydantic_converter() -> SandboxedWorkflowRunn
             ),
         )
     )
+
+
+class ConverterClient(Client):
+    def connect(self, *args, **kwargs):
+        return super().connect(data_converter=pydantic_data_converter, *args, **kwargs)

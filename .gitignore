@@ -2,3 +2,4 @@ __*cache__/
 .venv/
 .pytest_cache/
 .*_cache/
+.DS_Store

@@ -3,6 +3,8 @@ from dataclasses import is_dataclass
 from types import FunctionType
 from typing import Any
 
+from temporal_utils.collectors import TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE
+
 
 class TemporalUtilsValidationError(Exception):
     """Base class for all TemporalUtils validation errors."""
@@ -17,7 +19,8 @@ class _BaseValidator:
         """Must be implemented in subclass before use. This attribute is used to find the methods to validate, and have been decorated by temporal."""
         raise NotImplementedError
 
-    def get_opts_keys_that_must_be_set(self) -> list[str]:
+    @staticmethod
+    def get_opts_keys_that_must_be_set() -> list[str]:
         """list of dict keys required to exist in the opts dict for each method we validate."""
         raise NotImplementedError
 
@@ -258,7 +261,7 @@ class TemporalActivityValidators(_BaseValidator):
 
     @staticmethod
     def get_search_attribute() -> str:
-        return "__temporal_activity_definition"
+        return TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE
 
     @staticmethod
     def get_opts_keys_that_must_be_set() -> list[str]:
@@ -284,7 +287,8 @@ class TemporalWorkflowValidators(_BaseValidator):
     def get_search_attribute(self) -> str:
         return "__temporal_workflow_run"
 
-    def get_opts_keys_that_must_be_set(self) -> list[str]:
+    @staticmethod
+    def get_opts_keys_that_must_be_set() -> list[str]:
         return [
             "execution_timeout",
             "run_timeout",

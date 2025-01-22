@@ -11,12 +11,6 @@ from temporal_utils.converter import sandbox_runner_compatible_with_pydantic_con
 from temporal_utils.validation import TemporalActivityValidators
 
 
-def _get_all_callables_from_object(module: object) -> list[object]:
-    """Get all classes from a module."""
-    all_callables = inspect.getmembers(module, callable)
-    return [callable_tuple[1] for callable_tuple in all_callables]
-
-
 def get_all_activity_methods_from_object(
     instance_or_class_type: object,
 ) -> list[MethodType | FunctionType]:
@@ -33,7 +27,7 @@ def get_all_activity_methods_from_object(
     activity_methods_tup = [
         method_tuple
         for method_tuple in all_methods
-        # only use methods that are decorated with temporalio's @activity.defn
+        # filter for methods decorated with temporalio's @activity.defn
         if hasattr(method_tuple[1], TemporalActivityValidators.get_search_attribute())
     ]
 
@@ -55,18 +49,27 @@ async def _init_worker_with_pydantic_sandbox(
 ) -> None:
     logging.basicConfig(level=logging.INFO)
 
-    async with Worker(
+    worker = Worker(
         client_with_pydantic_converter,
         workflow_runner=sandbox_runner_compatible_with_pydantic_converter(),
         task_queue=worker_task_queue,
         workflows=workflows,
         activities=activities,
         **worker_init_kwargs,
-    ):
-        # Wait until interrupted
-        print("Worker started, ctrl+c to exit")
-        await interrupt_event.wait()
-        print("Shutting down")
+    )
+
+    # async with Worker(
+    #     client_with_pydantic_converter,
+    #     workflow_runner=sandbox_runner_compatible_with_pydantic_converter(),
+    #     task_queue=worker_task_queue,
+    #     workflows=workflows,
+    #     activities=activities,
+    #     **worker_init_kwargs,
+    # ):
+    #     # Wait until interrupted
+    #     print("Worker started, ctrl+c to exit")
+    #     await interrupt_event.wait()
+    #     print("Shutting down")
 
 
 def run_pydantic_worker_until_complete_in_new_asyncio_loop(

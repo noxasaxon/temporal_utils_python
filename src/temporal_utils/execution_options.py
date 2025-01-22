@@ -1,6 +1,6 @@
-from temporalio.workflow import ActivityConfig
 from datetime import timedelta
 
+from temporalio.workflow import ActivityConfig
 
 ## Collection of best-practice Temporal Activity execution options from the community
 # Temporal @ Stripe learnings: https://www.youtube.com/watch?v=yeoawVIn060

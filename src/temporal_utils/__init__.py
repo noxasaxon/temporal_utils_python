@@ -1,3 +1,7 @@
+# mypy: disable-error-code="unused-ignore"
+# pyright: reportUnusedImport=false
+
+
 from temporal_utils.base_class import (  # noqa: F401
     BaseActivityValidated,
     BaseWorkflowValidated,

@@ -6,5 +6,5 @@
 ### Testing
 
 ```sh
-uv run --dev pytest -rx 
+uv run --dev pytest -rx
 ```
