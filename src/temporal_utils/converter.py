@@ -1,7 +1,24 @@
+"""Inspired by https://github.com/temporalio/samples-python/blob/main/pydantic_converter/converter.py
+
+When using pydantic, we also need to pass through the data_converter via the sandbox to the workflow
+
+We always want to pass through external modules to the sandbox that we know
+are safe for workflow use
+with workflow.unsafe.imports_passed_through():
+    from pydantic import BaseModel
+
+    from pydantic_converter.converter import pydantic_data_converter
+"""
+
 import dataclasses
 import json
-from typing import Any, Optional
+from typing import Any, Mapping, Optional, Sequence, TypedDict, Union
 
+import temporalio.client
+import temporalio.common
+import temporalio.converter
+import temporalio.runtime
+import temporalio.service
 from pydantic_core import to_jsonable_python
 from temporalio.api.common.v1 import Payload
 from temporalio.client import Client
@@ -15,8 +32,10 @@ from temporalio.worker.workflow_sandbox import (
     SandboxedWorkflowRunner,
     SandboxRestrictions,
 )
+from typing_extensions import Unpack
 
 
+# https://github.com/temporalio/samples-python/blob/main/pydantic_converter/converter.py
 class PydanticJSONPayloadConverter(JSONPlainPayloadConverter):
     """Pydantic JSON payload converter.
 
@@ -40,6 +59,7 @@ class PydanticJSONPayloadConverter(JSONPlainPayloadConverter):
         )
 
 
+# https://github.com/temporalio/samples-python/blob/main/pydantic_converter/converter.py
 class PydanticPayloadConverter(CompositePayloadConverter):
     """Payload converter that replaces Temporal JSON conversion with Pydantic
     JSON conversion.
@@ -59,32 +79,50 @@ class PydanticPayloadConverter(CompositePayloadConverter):
 pydantic_data_converter = DataConverter(
     payload_converter_class=PydanticPayloadConverter
 )
-"""Pass this into the Temporal Client and the Worker to ensure that 
+"""Pass this into the Temporal Client and the Worker to ensure that
     the workflow input is converted using Pydantic's JSON encoder.
 """
 
 
-# we also need to pass through the data_converter via the sandbox to the workflow
+class ClientConnectArgsRequired(TypedDict):
+    target_host: str
+    namespace: str
 
-# We always want to pass through external modules to the sandbox that we know
-# are safe for workflow use
-# with workflow.unsafe.imports_passed_through():
-#     from pydantic import BaseModel
 
-#     from pydantic_converter.converter import pydantic_data_converter
+class ClientConnectArgsOptional(TypedDict, total=False):
+    api_key: Optional[str]
+    data_converter: temporalio.converter.DataConverter
+    interceptors: Sequence[temporalio.client.Interceptor]
+    default_workflow_query_reject_condition: Optional[
+        temporalio.common.QueryRejectCondition
+    ]
+    tls: Union[bool, temporalio.service.TLSConfig]
+    retry_config: Optional[temporalio.service.RetryConfig]
+    keep_alive_config: Optional[temporalio.service.KeepAliveConfig]
+    rpc_metadata: Mapping[str, str]
+    identity: Optional[str]
+    lazy: bool
+    runtime: Optional[temporalio.runtime.Runtime]
+    http_connect_proxy_config: Optional[temporalio.service.HttpConnectProxyConfig]
+
+
+class ClientConnectArgs(ClientConnectArgsRequired, ClientConnectArgsOptional):
+    """See `temporalio.client.Client.connect()` for more details"""
+
+    pass
 
 
 async def create_client_with_pydantic_converter(
-    host_url: str, **client_kwargs
+    **client_connect_kwargs: Unpack[ClientConnectArgs],
 ) -> Client:
     """When executing a workflow via a temporal Client, you must pass in the `pydantic_data_converter` instance
     as the `data_converter` argument for the `start_workflow()` or execute_workflow() methods. This will ensure
     that the workflow input is converted using Pydantic's JSON encoder.
     """
-    client = await Client.connect(
-        target_host=host_url, data_converter=pydantic_data_converter, **client_kwargs
-    )
-    return client
+    client_connect_kwargs["data_converter"] = pydantic_data_converter
+
+    pydantic_compatible_temporal_client = await Client.connect(**client_connect_kwargs)
+    return pydantic_compatible_temporal_client
 
 
 # Due to known issues with Pydantic's use of issubclass and our inability to
@@ -101,8 +139,3 @@ def sandbox_runner_compatible_with_pydantic_converter() -> SandboxedWorkflowRunn
             ),
         )
     )
-
-
-class ConverterClient(Client):
-    def connect(self, *args, **kwargs):
-        return super().connect(data_converter=pydantic_data_converter, *args, **kwargs)

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import timedelta
 
 import pytest
@@ -6,7 +7,10 @@ from temporalio import activity
 from temporalio.common import RetryPolicy
 
 from temporal_utils.base_class import BaseActivityValidated, TemporalActivityValidators
-from temporal_utils.validation import TemporalUtilsValidationError
+from temporal_utils.validation import (
+    TemporalUtilsValidationError,
+    validate_activity_class,
+)
 
 
 class ActivityInput(BaseModel):
@@ -27,6 +31,11 @@ act_options = {
         non_retryable_error_types=[],
     ),
 }
+
+
+@dataclass
+class BadArgIsDataclassAndBaseModel(BaseModel):
+    operation: str
 
 
 def test_activity_has_its_own_call_options():
@@ -187,16 +196,11 @@ def test_activity_fails_when_input_is_base_model_but_also_dataclass():
         TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_input_arg_is_pydantic_serializable.__name__,
     ):
-        from dataclasses import dataclass
-
-        @dataclass
-        class BadInputIsDataclassAndBaseModel(BaseModel):
-            operation: str
 
         class ActivityWithCallOptions(BaseActivityValidated):
             @activity.defn
             async def act_with_call_options(
-                self, act_input: BadInputIsDataclassAndBaseModel
+                self, act_input: BadArgIsDataclassAndBaseModel
             ) -> ActivityOutput:
                 return ActivityOutput(result="success")
 
@@ -208,13 +212,28 @@ def test_activity_fails_when_output_is_base_model_but_also_dataclass():
         TemporalUtilsValidationError,
         match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
     ):
-        from dataclasses import dataclass
+
+        class ActivityWithCallOptions(BaseActivityValidated):
+            @activity.defn
+            async def act_with_call_options(
+                self, act_input: ActivityInput
+            ) -> BadArgIsDataclassAndBaseModel:
+                return BadArgIsDataclassAndBaseModel(operation="success")
+
+            opts_act_with_call_options = act_options
+
+
+def test_validation_fn_works_with_activity_class():
+    with pytest.raises(
+        TemporalUtilsValidationError,
+        match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
+    ):
 
         @dataclass
         class BadOutputIsDataclassAndBaseModel(BaseModel):
             result: str
 
-        class ActivityWithCallOptions(BaseActivityValidated):
+        class ActivityWithCallOptions:
             @activity.defn
             async def act_with_call_options(
                 self, act_input: ActivityInput
@@ -222,3 +241,31 @@ def test_activity_fails_when_output_is_base_model_but_also_dataclass():
                 return BadOutputIsDataclassAndBaseModel(result="success")
 
             opts_act_with_call_options = act_options
+
+        # as class
+        validate_activity_class(ActivityWithCallOptions)
+
+
+def test_validation_fn_works_with_activity_class_instance():
+    with pytest.raises(
+        TemporalUtilsValidationError,
+        match=TemporalActivityValidators._validate_method_output_is_pydantic_serializable.__name__,
+    ):
+
+        @dataclass
+        class BadOutputIsDataclassAndBaseModel(BaseModel):
+            result: str
+
+        class ActivityWithCallOptions:
+            @activity.defn
+            async def act_with_call_options(
+                self, act_input: ActivityInput
+            ) -> BadOutputIsDataclassAndBaseModel:
+                return BadOutputIsDataclassAndBaseModel(result="success")
+
+            opts_act_with_call_options = act_options
+
+        # as instance
+        instance = ActivityWithCallOptions()
+
+        validate_activity_class(instance)

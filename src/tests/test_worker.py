@@ -1,6 +1,6 @@
 from temporalio import activity
 
-from temporal_utils.worker import get_all_activity_methods_from_object
+from temporal_utils.collectors import get_all_activity_methods_from_object
 
 
 def test_get_all_activity_methods_from_instance_of_class():

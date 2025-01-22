@@ -30,3 +30,20 @@ warn_unused_ignores = false
 namespace_packages = true
 exclude = ['.venv', "tests/*"]
 plugins = ["pydantic.mypy"]
+
+[tool.ruff.lint]
+# 1. Ignore F841 (local variable is assigned to but never used)
+# 2. Ignore E711 (comparison to None should be 'if cond is None:')
+# 3. Ignore E712 (comparison to True should be 'if cond is True:' or 'if cond:')
+ignore = ["F841", "E711", "E712"]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+order-by-type = true
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]

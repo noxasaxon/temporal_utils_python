@@ -24,10 +24,13 @@ class _BaseValidator:
         """list of dict keys required to exist in the opts dict for each method we validate."""
         raise NotImplementedError
 
-    def run_validators(self, class_to_validate: type) -> None:  # type: ignore[reportSelfClsParameterName]
+    def run_validators(self, class_to_validate: type | object) -> None:  # type: ignore[reportSelfClsParameterName]
         """Runs all validators on the input class."""
 
         validation_fn_prefix = "_validate_"
+
+        if not isinstance(class_to_validate, type):
+            class_to_validate = class_to_validate.__class__
 
         # get all methods from Self that begin with "validate_"
         validators = [
@@ -279,6 +282,16 @@ class TemporalActivityValidators(_BaseValidator):
             # Limits the maximum time between Heartbeats. For long running Activities, enables a quicker response when a Heartbeat fails to be recorded.
             # "heartbeat_timeout": None,
         ]
+
+
+default_activity_validator = TemporalActivityValidators()
+
+
+def validate_activity_class(
+    activity_class: type | object,
+    validator: TemporalActivityValidators = default_activity_validator,
+) -> None:
+    validator.run_validators(activity_class)
 
 
 class TemporalWorkflowValidators(_BaseValidator):

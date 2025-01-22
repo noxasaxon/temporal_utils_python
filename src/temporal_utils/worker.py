@@ -1,96 +1,106 @@
 import asyncio
-import inspect
-import logging
-from types import FunctionType, MethodType
-from typing import Callable, Sequence, Type
+import concurrent.futures
+from datetime import timedelta
+from typing import Awaitable, Callable, Optional, Sequence, Type, TypedDict
 
 from temporalio.client import Client
-from temporalio.worker import Worker
+from temporalio.worker import SharedStateManager, Worker, WorkerTuner
+from temporalio.worker._interceptor import Interceptor
+from temporalio.worker._workflow_instance import WorkflowRunner
+from typing_extensions import Unpack
 
 from temporal_utils.converter import sandbox_runner_compatible_with_pydantic_converter
-from temporal_utils.validation import TemporalActivityValidators
 
 
-def get_all_activity_methods_from_object(
-    instance_or_class_type: object,
-) -> list[MethodType | FunctionType]:
-    """A helper for getting every @activity.defn method in a class to pass to a Worker.
-    This means you don't need to remember to add it to the worker every time you add an activity, and
-    you don't need to list them out manually.
-    """
+# create a typed dict of the Worker's init parameters
+class WorkerRequiredParams(TypedDict):
+    client: Client
+    task_queue: str
+    activities: Sequence[Callable]
+    workflows: Sequence[Type]
 
-    all_methods = inspect.getmembers(
-        instance_or_class_type,
-        predicate=lambda x: inspect.isfunction(x) or inspect.ismethod(x),
-    )
 
-    activity_methods_tup = [
-        method_tuple
-        for method_tuple in all_methods
-        # filter for methods decorated with temporalio's @activity.defn
-        if hasattr(method_tuple[1], TemporalActivityValidators.get_search_attribute())
-    ]
+class WorkerOptionalParams(TypedDict, total=False):
+    activity_executor: Optional[concurrent.futures.Executor]
+    workflow_task_executor: Optional[concurrent.futures.ThreadPoolExecutor]
+    workflow_runner: WorkflowRunner
+    unsandboxed_workflow_runner: WorkflowRunner
+    interceptors: Sequence[Interceptor]
+    build_id: Optional[str]
+    identity: Optional[str]
+    max_cached_workflows: int
+    max_concurrent_workflow_tasks: Optional[int]
+    max_concurrent_activities: Optional[int]
+    max_concurrent_local_activities: Optional[int]
+    tuner: Optional[WorkerTuner]
+    max_concurrent_workflow_task_polls: int
+    nonsticky_to_sticky_poll_ratio: float
+    max_concurrent_activity_task_polls: int
+    no_remote_activities: bool
+    sticky_queue_schedule_to_start_timeout: timedelta
+    max_heartbeat_throttle_interval: timedelta
+    default_heartbeat_throttle_interval: timedelta
+    max_activities_per_second: Optional[float]
+    max_task_queue_activities_per_second: Optional[float]
+    graceful_shutdown_timeout: timedelta
+    workflow_failure_exception_types: Sequence[Type[BaseException]]
+    shared_state_manager: Optional[SharedStateManager]
+    debug_mode: bool
+    disable_eager_activity_execution: bool
+    on_fatal_error: Optional[Callable[[BaseException], Awaitable[None]]]
+    use_worker_versioning: bool
+    disable_safe_workflow_eviction: bool
 
-    activity_methods = [method_tuple[1] for method_tuple in activity_methods_tup]
 
-    return activity_methods  # type: ignore[no-any-return]
+class AllWorkerParams(WorkerRequiredParams, WorkerOptionalParams):
+    """See `temporalio.worker.Worker` for more details"""
+
+    pass
+
+
+def build_worker_params(
+    worker_required_params: WorkerRequiredParams,
+    rest_of_params: WorkerOptionalParams,
+) -> AllWorkerParams:
+    return AllWorkerParams(**worker_required_params, **rest_of_params)
 
 
 # used for interrupting the worker, do not delete
 interrupt_event = asyncio.Event()
 
 
-async def _init_worker_with_pydantic_sandbox(
-    client_with_pydantic_converter: Client,
-    worker_task_queue: str,
-    workflows: Sequence[Type],
-    activities: Sequence[Callable],
-    **worker_init_kwargs,  # type: ignore[reportMissingParameterType] # noqa: no-untyped-def
-) -> None:
-    logging.basicConfig(level=logging.INFO)
-
-    worker = Worker(
-        client_with_pydantic_converter,
-        workflow_runner=sandbox_runner_compatible_with_pydantic_converter(),
-        task_queue=worker_task_queue,
-        workflows=workflows,
-        activities=activities,
-        **worker_init_kwargs,
-    )
-
-    # async with Worker(
-    #     client_with_pydantic_converter,
-    #     workflow_runner=sandbox_runner_compatible_with_pydantic_converter(),
-    #     task_queue=worker_task_queue,
-    #     workflows=workflows,
-    #     activities=activities,
-    #     **worker_init_kwargs,
-    # ):
-    #     # Wait until interrupted
-    #     print("Worker started, ctrl+c to exit")
-    #     await interrupt_event.wait()
-    #     print("Shutting down")
-
-
-def run_pydantic_worker_until_complete_in_new_asyncio_loop(
+def run_pydantic_worker_until_complete(
     client_with_pydantic_converter: Client,
     worker_task_queue: str,
     workflows: list,
     activities: list,
-    **worker_init_kwargs,  # type: ignore[reportMissingParameterType]
+    **worker_params: Unpack[WorkerOptionalParams],
 ):
+    # TODO: enforce that the client has a pydantic compatible data converter via static typing
+
+    required_params: WorkerRequiredParams = {
+        "client": client_with_pydantic_converter,
+        "task_queue": worker_task_queue,
+        "workflows": workflows,
+        "activities": activities,
+    }
+
+    # set up the worker with the pydantic compatible workflow runner
+    worker_params["workflow_runner"] = (
+        sandbox_runner_compatible_with_pydantic_converter()
+    )
+
+    async def init_worker():
+        async with Worker(**required_params, **worker_params):
+            # Wait until interrupted
+            print("Worker started, ctrl+c to exit")
+            await interrupt_event.wait()
+            print("Shutting down")
+
     loop = asyncio.new_event_loop()
 
     try:
-        loop.run_until_complete(
-            _init_worker_with_pydantic_sandbox(
-                client_with_pydantic_converter=client_with_pydantic_converter,
-                worker_task_queue=worker_task_queue,
-                workflows=workflows,
-                activities=activities,
-                **worker_init_kwargs,
-            )
-        )
+        loop.run_until_complete(init_worker())
     except KeyboardInterrupt:
         interrupt_event.set()
         loop.run_until_complete(loop.shutdown_asyncgens())
