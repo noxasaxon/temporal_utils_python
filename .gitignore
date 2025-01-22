@@ -3,3 +3,6 @@ __*cache__/
 .pytest_cache/
 .*_cache/
 .DS_Store
+
+# generated test data
+src/tests/data/*_generated/

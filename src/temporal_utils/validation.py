@@ -1,15 +1,25 @@
 import inspect
+import types
 from dataclasses import is_dataclass
 from types import FunctionType
 from typing import Any
 
-from temporal_utils.collectors import TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE
+from temporal_utils.collectors import (
+    TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE,
+    get_all_classes_from_module_and_submodules,
+    get_classes_with_activity_methods,
+)
 
 
 class TemporalUtilsValidationError(Exception):
     """Base class for all TemporalUtils validation errors."""
 
-    pass
+    def __init__(self, message: str, error_msgs: list[str] = []):
+        if not error_msgs:
+            error_msgs = [message]
+
+        self.error_msgs = error_msgs
+        super().__init__(message)
 
 
 class _BaseValidator:
@@ -60,14 +70,15 @@ class _BaseValidator:
                 # add context to errors and add them to the total errors list
                 errors.extend(
                     [
-                        f"{e} |Reported via {self.__str__()}.{validator.__name__}()"
+                        f"{e} |Reported via {self.__class__.__name__}.{validator.__name__}()"
                         for e in validator_errors
                     ]
                 )
 
         if errors:
             raise TemporalUtilsValidationError(
-                f"Validation Errors found in class `{class_to_validate.__name__}`: {errors}"
+                f"Validation Errors found in class `{class_to_validate.__name__}`: {errors}",
+                error_msgs=errors,
             )
 
     def _collect_methods_to_validate(
@@ -284,16 +295,6 @@ class TemporalActivityValidators(_BaseValidator):
         ]
 
 
-default_activity_validator = TemporalActivityValidators()
-
-
-def validate_activity_class(
-    activity_class: type | object,
-    validator: TemporalActivityValidators = default_activity_validator,
-) -> None:
-    validator.run_validators(activity_class)
-
-
 class TemporalWorkflowValidators(_BaseValidator):
     """ """
 
@@ -306,3 +307,35 @@ class TemporalWorkflowValidators(_BaseValidator):
             "execution_timeout",
             "run_timeout",
         ]
+
+
+default_activity_validator = TemporalActivityValidators()
+
+
+def validate_activity_class(
+    activity_class: type | object,
+    validator: TemporalActivityValidators = default_activity_validator,
+) -> None:
+    validator.run_validators(activity_class)
+
+
+def bulk_validate_module_activities(
+    module: types.ModuleType, class_validator_fn=validate_activity_class
+) -> None:
+    """Validate all activities in a module and its submodules."""
+    classes = get_all_classes_from_module_and_submodules(module)
+    classes_with_activity_methods = get_classes_with_activity_methods(classes)
+
+    all_error_msgs = []
+
+    for cls, _activity_methods in classes_with_activity_methods:
+        try:
+            class_validator_fn(cls)
+        except TemporalUtilsValidationError as e:
+            all_error_msgs.extend(e.error_msgs)
+
+    if all_error_msgs:
+        raise TemporalUtilsValidationError(
+            f"Validation Errors found in module `{module.__name__}`: {all_error_msgs}",
+            error_msgs=all_error_msgs,
+        )

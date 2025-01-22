@@ -2,6 +2,7 @@ import importlib.util
 import inspect
 import pathlib
 import sys
+import types
 from types import FunctionType, MethodType
 
 TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE = "__temporal_activity_definition"
@@ -89,4 +90,50 @@ def get_all_classes_from_file_contents(
         if isinstance(item, type) and item.__module__ == "temp_module":
             classes.append(item)
 
+    del sys.modules["temp_module"]
+
     return classes
+
+
+def get_all_classes_from_module_and_submodules(module) -> list[type]:
+    """
+    Recursively finds all classes defined in a module and its submodules.
+    This includes sibling modules and their submodules.
+
+    Args:
+        module: A Python module object to search for classes
+
+    Returns:
+        list[type]: A list of all class types found in the module hierarchy
+    """
+    all_classes = []
+    visited_modules = set()
+
+    def _collect_from_module(current_module):
+        if current_module in visited_modules:
+            return
+        visited_modules.add(current_module)
+
+        # Get base package name (e.g., 'foo' from 'foo.bar.baz')
+        base_package = current_module.__name__.split(".")[0]
+
+        # Get classes directly defined in this module
+        for item_name in dir(current_module):
+            item = getattr(current_module, item_name)
+
+            # Check for classes
+            if isinstance(item, type):
+                # Only include if it's defined in our module hierarchy
+                if hasattr(item, "__module__") and item.__module__.startswith(
+                    base_package
+                ):
+                    all_classes.append(item)
+
+            # Check for submodules
+            elif isinstance(item, types.ModuleType):
+                # Process if it's part of our package
+                if item.__name__.startswith(base_package):
+                    _collect_from_module(item)
+
+    _collect_from_module(module)
+    return all_classes
