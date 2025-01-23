@@ -115,7 +115,7 @@ def get_all_classes_from_module_and_submodules(module) -> list[type]:
         visited_modules.add(current_module)
 
         # Get base package name (e.g., 'foo' from 'foo.bar.baz')
-        base_package = current_module.__name__.split(".")[0]
+        base_package = current_module.__name__.split(".")[0]  # type: ignore[attr-defined]
 
         # Get classes directly defined in this module
         for item_name in dir(current_module):

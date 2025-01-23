@@ -321,14 +321,17 @@ def validate_activity_class(
 
 def bulk_validate_module_activities(
     module: types.ModuleType, class_validator_fn=validate_activity_class
-) -> None:
-    """Validate all activities in a module and its submodules."""
+) -> list[tuple[type, list[FunctionType]]]:
+    """Validate all activities in a module and its submodules.
+    Raises:
+        TemporalUtilsValidationError for all errors found
+    """
     classes = get_all_classes_from_module_and_submodules(module)
-    classes_with_activity_methods = get_classes_with_activity_methods(classes)
+    collected_activity_classes_and_methods = get_classes_with_activity_methods(classes)
 
     all_error_msgs = []
 
-    for cls, _activity_methods in classes_with_activity_methods:
+    for cls, _activity_methods in collected_activity_classes_and_methods:
         try:
             class_validator_fn(cls)
         except TemporalUtilsValidationError as e:
@@ -339,3 +342,5 @@ def bulk_validate_module_activities(
             f"Validation Errors found in module `{module.__name__}`: {all_error_msgs}",
             error_msgs=all_error_msgs,
         )
+
+    return collected_activity_classes_and_methods
