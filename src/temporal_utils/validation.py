@@ -2,7 +2,7 @@ import inspect
 import types
 from dataclasses import is_dataclass
 from types import FunctionType
-from typing import Any
+from typing import Any, Callable
 
 from temporal_utils.collectors import (
     TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE,
@@ -25,7 +25,8 @@ class TemporalUtilsValidationError(Exception):
 class _BaseValidator:
     """Collection of class validation utilities that are generic for use on workflows and activities."""
 
-    def get_search_attribute(self) -> str:
+    @staticmethod
+    def get_search_attribute() -> str:
         """Must be implemented in subclass before use. This attribute is used to find the methods to validate, and have been decorated by temporal."""
         raise NotImplementedError
 
@@ -246,27 +247,34 @@ class _BaseValidator:
 class TemporalActivityValidators(_BaseValidator):
     """
     The Temporal team and community have discovered a few best practices for defining and calling Temporal Activities,
-        and this class is a collection of validator functions that check those practices are followed. When combined
-        with the `BaseActivityValidated` class we can provide guardrails that check even before workflows are live.
+        and this class is a collection of validator functions that check those practices are followed.
 
-    If you define activities as methods on a class that inherits from `BaseActivityValidated`, these validation functions
-        will run and raise errors automatically at 'file interpret' time, even if the class itself is never initialized. This
+    #### Options For Use:
+    - Function-driven validation: use `validate_activity_class()` manually or set up the `bulk_validate_module_activities()` function in
+        your unit tests to run validators on all activity classes found in a module and its submodules.
+    - Inheritance-driven validation: Write your activities in a class that inherits from `BaseActivityValidated`. these validation functions
+        will run and raise errors automatically at 'file interpret' time, even if the class itself is never initialized in your code. This
         works because the `__init_subclass__` dunder method on `BaseActivityValidated` automatically runs these validators.
 
-    These validators will:
+    #### Validation Details:
         - Ensure activities expect a _single_ input parameter when being called.
-        - Ensure activity input is a JSON dict-like object/class.
-            These two validations are recommended for backwards compatibility because th fn signature is unchanged when adding a new input arg via object field.
+        - Ensure activity input is a class descended from `pydantic.BaseModel` (required for the pydantic data_converter to work).
+            - These two validations are recommended for backwards compatibility because the fn signature is unchanged when adding
+                a new input arg via object field.
         - Ensure each activity definition comes with a recommended set of options (retries, etc) when executing it from a workflow.
-            This takes the burden off the workflow writer to also be a subject matter expert on each activity, which enables safer usage.
+            - This takes the burden off the workflow writer to also be a subject matter expert on each activity, which enables safer usage.
 
-    To add a validator which is automatically run on children of `BaseActivityValidated`, create a new `staticmethod`
+    #### Extending Validators with Custom Requirements:
+    To add a custom validator method, create a new class that inherits from `TemporalActivityValidators` and has a `staticmethod`
     fn with a name starting with `_validate_` and with the same fn signature as the existing validators:
         ```python
-
-        class TemporalActivityValidators:
+        class CustomActivityValidator(TemporalActivityValidators):
             @staticmethod
-            def _validate_my_new_validator(cls: type, method_name: str, _method_type: FunctionType) -> list[str]:
+            def _validate_my_new_requirement(self,
+                class_to_validate: type,
+                method_name: str,
+                method_type: FunctionType,
+            ) -> list[str]:
                 errors = []
                 # do some validation here, and add string to the `errors` list if something is wrong
                 return errors
@@ -298,7 +306,8 @@ class TemporalActivityValidators(_BaseValidator):
 class TemporalWorkflowValidators(_BaseValidator):
     """ """
 
-    def get_search_attribute(self) -> str:
+    @staticmethod
+    def get_search_attribute() -> str:
         return "__temporal_workflow_run"
 
     @staticmethod
@@ -320,7 +329,8 @@ def validate_activity_class(
 
 
 def bulk_validate_module_activities(
-    module: types.ModuleType, class_validator_fn=validate_activity_class
+    module: types.ModuleType,
+    class_validator_fn: Callable[[type], None] = validate_activity_class,
 ) -> list[tuple[type, list[FunctionType]]]:
     """Validate all activities in a module and its submodules.
     Raises:
