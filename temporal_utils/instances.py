@@ -5,9 +5,8 @@ from typing import Dict, Optional
 
 from temporalio.client import Client
 from temporalio.contrib.opentelemetry import TracingInterceptor
+from temporalio.contrib.pydantic import pydantic_data_converter
 from temporalio.runtime import OpenTelemetryConfig, Runtime, TelemetryConfig
-
-from temporal_utils.converter import create_client_with_pydantic_converter
 
 runtime_with_telemetry: Optional[Runtime] = None
 
@@ -46,14 +45,20 @@ class _TemporalClientManager:
     ) -> Client:
         async with self._lock:
             if temporal_namespace not in self._clients:
-                client = await create_client_with_pydantic_converter(
+                telemetry_enabled = (
+                    str(os.getenv("TELEMETRY_ENABLED", "")).lower() == "true"
+                )
+                interceptors = [self._tracing_interceptor] if telemetry_enabled else []
+
+                client = await Client.connect(
                     target_host=temporal_host,
                     namespace=temporal_namespace,
                     api_key=temporal_api_key,
                     rpc_metadata={"temporal-namespace": temporal_namespace},
                     tls=use_tls,
-                    runtime=get_runtime_with_telemetry(),
-                    interceptors=[self._tracing_interceptor],
+                    runtime=get_runtime_with_telemetry() if telemetry_enabled else None,
+                    interceptors=interceptors,
+                    data_converter=pydantic_data_converter,
                 )
                 self._clients[temporal_namespace] = client
             return self._clients[temporal_namespace]

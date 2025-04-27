@@ -1,9 +1,9 @@
-from enum import Enum
 import importlib.util
 import inspect
 import pathlib
 import sys
 import types
+from enum import Enum
 from types import FunctionType, MethodType
 
 TEMPORAL_ACTIVITY_DEFINITION_SEARCH_ATTRIBUTE = "__temporal_activity_definition"

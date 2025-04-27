@@ -9,8 +9,6 @@ from temporalio.worker._interceptor import Interceptor
 from temporalio.worker._workflow_instance import WorkflowRunner
 from typing_extensions import Unpack
 
-from temporal_utils.converter import sandbox_runner_compatible_with_pydantic_converter
-
 
 # create a typed dict of the Worker's init parameters
 class WorkerRequiredParams(TypedDict):
@@ -86,9 +84,9 @@ def run_pydantic_worker_until_complete(
     }
 
     # set up the worker with the pydantic compatible workflow runner
-    worker_params["workflow_runner"] = (
-        sandbox_runner_compatible_with_pydantic_converter()
-    )
+    # worker_params["workflow_runner"] = (
+    #     sandbox_runner_compatible_with_pydantic_converter()
+    # )
 
     async def init_worker():
         async with Worker(**required_params, **worker_params):
