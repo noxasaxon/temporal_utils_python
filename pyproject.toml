@@ -1,14 +1,11 @@
 [project]
-name = "temporal-utils"
+name = "temporal_utils"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Saxon", email = "me@saxonhunt.com" }]
 requires-python = ">=3.10"
-dependencies = [
-    "temporalio==1.11.0",
-    "pydantic~=2.11.3",
-]
+dependencies = ["temporalio==1.11.0", "pydantic~=2.11.3"]
 
 
 [tool.uv]
