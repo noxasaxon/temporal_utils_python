@@ -95,7 +95,7 @@ def get_all_classes_from_file_contents(
     return classes
 
 
-def get_all_classes_from_module_and_submodules(module) -> list[type]:
+def get_all_classes_from_module_and_submodules(module: types.ModuleType) -> list[type]:
     """
     Recursively finds all classes defined in a module and its submodules.
     This includes sibling modules and their submodules.
@@ -109,7 +109,7 @@ def get_all_classes_from_module_and_submodules(module) -> list[type]:
     all_classes = []
     visited_modules = set()
 
-    def _collect_from_module(current_module):
+    def _collect_from_module(current_module: types.ModuleType):
         if current_module in visited_modules:
             return
         visited_modules.add(current_module)

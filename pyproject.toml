@@ -5,18 +5,18 @@ description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "Saxon", email = "me@saxonhunt.com" }]
 requires-python = ">=3.10"
-dependencies = ["temporalio==1.8.0", "pydantic[email]~=2.7.4"]
+dependencies = [
+    "temporalio==1.11.0",
+    "pydantic~=2.11.3",
+]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [
-    "pytest~=8.2.2",
-    "mypy~=1.11.1",
-    "ruff~=0.8.4",
-    "pyright~=1.1.375",
+    "pytest~=8.3.5",
+    "mypy~=1.15.0",
+    "ruff~=0.11.7",
+    "pyright~=1.1.400",
 ]
 
 
@@ -47,3 +47,8 @@ section-order = [
     "first-party",
     "local-folder",
 ]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
