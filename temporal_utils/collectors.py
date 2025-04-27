@@ -1,3 +1,4 @@
+from enum import Enum
 import importlib.util
 import inspect
 import pathlib
@@ -137,3 +138,33 @@ def get_all_classes_from_module_and_submodules(module: types.ModuleType) -> list
 
     _collect_from_module(module)
     return all_classes
+
+
+class FunctionCategory(Enum):
+    CLASS_METHOD = "class_method"
+    REGULAR_FUNCTION = "regular_function"
+
+
+def identify_function_category(func):
+    if not callable(func):
+        raise TypeError(f"{type(func)} is not a function")
+
+    if inspect.ismethod(func):
+        # It's a bound method (instance method or class method)
+        return FunctionCategory.CLASS_METHOD
+    elif inspect.isfunction(func):
+        # Check if it's an unbound method from a class
+        if hasattr(func, "__qualname__"):
+            # For functions defined in a class, __qualname__ will have format "Class.method"
+            # For functions not in a class, __qualname__ will be the same as __name__
+            parts = func.__qualname__.split(".")
+            if len(parts) >= 2 and parts[-2] not in [
+                "<locals>",
+                "test_identify_function_category",
+            ]:
+                return FunctionCategory.CLASS_METHOD
+        # Regular function or static method
+        return FunctionCategory.REGULAR_FUNCTION
+    else:
+        # Other callable (like a class with __call__)
+        raise TypeError(f"{type(func)} is not a function")
